@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iris ML Studio - Live Prediction Interface</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Range Slider Styling */
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 8px;
+      border-radius: 9999px;
+      background: #334155;
+      outline: none;
+      transition: background 0.2s ease;
+    }
+    .light input[type=range] {
+      background: #e2e8f0;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #6366f1;
+      cursor: pointer;
+      border: 3px solid #ffffff;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+      transition: transform 0.15s ease, background-color 0.2s ease;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      background: #4f46e5;
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #6366f1;
+      cursor: pointer;
+      border: 3px solid #ffffff;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+      transition: transform 0.15s ease, background-color 0.2s ease;
+    }
+    .glass-card {
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased transition-colors duration-300">
+
+  <header class="border-b border-slate-800 bg-slate-900/70 sticky top-0 z-40 glass-card">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-bold text-xl">
+          🌸
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            Iris ML Studio
+            <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Production API</span>
+          </h1>
+          <p class="text-xs text-slate-400 hidden sm:block">FastAPI & Logistic Regression Inference Client</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <!-- Live Status Pill -->
+        <div id="statusPill" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-medium transition-all">
+          <span id="statusDot" class="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
+          <span id="statusText">Checking API...</span>
+        </div>
+
+        <!-- Toggle Theme -->
+        <button id="themeToggleBtn" title="Toggle Theme" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+          <svg id="themeIconSun" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9h-1m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          <svg id="themeIconMoon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+    <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Endpoint:</span>
+        <div class="flex-1 md:w-96 flex items-center bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 font-mono text-xs text-indigo-300">
+          <span class="text-slate-500 mr-1.5 select-none">POST</span>
+          <input id="apiUrlInput" type="text" value="https://iris-ml-api-satyam.onrender.com" class="bg-transparent border-none outline-none w-full text-slate-200">
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+        <button id="pingHealthBtn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg border border-slate-700 flex items-center gap-2 transition active:scale-95">
+          <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Check /health
+        </button>
+        <span id="latencyBadge" class="text-xs font-mono text-slate-400 bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
+          Latency: <span id="latencyVal" class="text-slate-300">-- ms</span>
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+      <!-- Left Column: Sliders, Presets, and Controls -->
+      <div class="lg:col-span-7 space-y-6">
+
+        <!-- Presets Card -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold tracking-wide text-slate-300 uppercase">Quick Species Presets</h2>
+            <span class="text-xs text-slate-500">Known dataset centroids</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3">
+            <button onclick="applyPreset('setosa')" class="group p-3 rounded-xl bg-slate-800/60 hover:bg-emerald-950/40 border border-slate-700/80 hover:border-emerald-500/50 transition-all text-left">
+              <div class="flex items-center justify-between">
+                <span class="text-lg">🌱</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Class 0</span>
+              </div>
+              <h3 class="text-sm font-bold text-slate-200 group-hover:text-emerald-300 mt-2">Setosa</h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">Short & wide petals</p>
+            </button>
+
+            <button onclick="applyPreset('versicolor')" class="group p-3 rounded-xl bg-slate-800/60 hover:bg-sky-950/40 border border-slate-700/80 hover:border-sky-500/50 transition-all text-left">
+              <div class="flex items-center justify-between">
+                <span class="text-lg">🌿</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">Class 1</span>
+              </div>
+              <h3 class="text-sm font-bold text-slate-200 group-hover:text-sky-300 mt-2">Versicolor</h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">Medium proportions</p>
+            </button>
+
+            <button onclick="applyPreset('virginica')" class="group p-3 rounded-xl bg-slate-800/60 hover:bg-purple-950/40 border border-slate-700/80 hover:border-purple-500/50 transition-all text-left">
+              <div class="flex items-center justify-between">
+                <span class="text-lg">🌺</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">Class 2</span>
+              </div>
+              <h3 class="text-sm font-bold text-slate-200 group-hover:text-purple-300 mt-2">Virginica</h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">Long & robust petals</p>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
+          <div class="flex items-center justify-between border-b border-slate-800/70 pb-4">
+            <div>
+              <h2 class="text-lg font-bold text-white">Input Flower Features</h2>
+              <p class="text-xs text-slate-400">Tweak the sliders or type exact values in centimeters</p>
+            </div>
+            
+            <!-- Auto Predict Toggle -->
+            <label class="flex items-center cursor-pointer select-none">
+              <span class="mr-2 text-xs font-medium text-slate-300">Auto-predict</span>
+              <div class="relative">
+                <input type="checkbox" id="autoPredictToggle" class="sr-only" checked>
+                <div class="block bg-slate-800 w-10 h-6 rounded-full border border-slate-700 transition"></div>
+                <div id="toggleDot" class="dot absolute left-1 top-1 bg-indigo-500 w-4 h-4 rounded-full transition transform translate-x-4"></div>
+              </div>
+            </label>
+          </div>
+
+          <!-- Feature 1: Sepal Length -->
+          <div class="space-y-2">
+            <div class="flex justify-between items-center text-sm">
+              <label for="sepalLength" class="font-medium text-slate-300 flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-indigo-400"></span>
+                Sepal Length
+              </label>
+              <div class="flex items-center gap-1">
+                <input type="number" id="sepalLengthNum" step="0.1" min="4.0" max="8.0" value="5.1"
+                  class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-right font-mono text-sm text-indigo-400 focus:outline-none focus:border-indigo-500">
+                <span class="text-xs text-slate-400">cm</span>
+              </div>
+            </div>
+            <input type="range" id="sepalLength" min="4.0" max="8.0" step="0.1" value="5.1" class="w-full">
+            <div class="flex justify-between text-[11px] text-slate-500 font-mono">
+              <span>4.0 cm</span>
+              <span>8.0 cm</span>
+            </div>
+          </div>
+
+          <!-- Feature 2: Sepal Width -->
+          <div class="space-y-2">
+            <div class="flex justify-between items-center text-sm">
+              <label for="sepalWidth" class="font-medium text-slate-300 flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-indigo-400"></span>
+                Sepal Width
+              </label>
+              <div class="flex items-center gap-1">
+                <input type="number" id="sepalWidthNum" step="0.1" min="2.0" max="4.5" value="3.5"
+                  class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-right font-mono text-sm text-indigo-400 focus:outline-none focus:border-indigo-500">
+                <span class="text-xs text-slate-400">cm</span>
+              </div>
+            </div>
+            <input type="range" id="sepalWidth" min="2.0" max="4.5" step="0.1" value="3.5" class="w-full">
+            <div class="flex justify-between text-[11px] text-slate-500 font-mono">
+              <span>2.0 cm</span>
+              <span>4.5 cm</span>
+            </div>
+          </div>
+
+          <!-- Feature 3: Petal Length -->
+          <div class="space-y-2">
+            <div class="flex justify-between items-center text-sm">
+              <label for="petalLength" class="font-medium text-slate-300 flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-violet-400"></span>
+                Petal Length
+              </label>
+              <div class="flex items-center gap-1">
+                <input type="number" id="petalLengthNum" step="0.1" min="1.0" max="7.0" value="1.4"
+                  class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-right font-mono text-sm text-violet-400 focus:outline-none focus:border-violet-500">
+                <span class="text-xs text-slate-400">cm</span>
+              </div>
+            </div>
+            <input type="range" id="petalLength" min="1.0" max="7.0" step="0.1" value="1.4" class="w-full">
+            <div class="flex justify-between text-[11px] text-slate-500 font-mono">
+              <span>1.0 cm</span>
+              <span>7.0 cm</span>
+            </div>
+          </div>
+
+          <!-- Feature 4: Petal Width -->
+          <div class="space-y-2">
+            <div class="flex justify-between items-center text-sm">
+              <label for="petalWidth" class="font-medium text-slate-300 flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-violet-400"></span>
+                Petal Width
+              </label>
+              <div class="flex items-center gap-1">
+                <input type="number" id="petalWidthNum" step="0.1" min="0.1" max="2.5" value="0.2"
+                  class="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-right font-mono text-sm text-violet-400 focus:outline-none focus:border-violet-500">
+                <span class="text-xs text-slate-400">cm</span>
+              </div>
+            </div>
+            <input type="range" id="petalWidth" min="0.1" max="2.5" step="0.1" value="0.2" class="w-full">
+            <div class="flex justify-between text-[11px] text-slate-500 font-mono">
+              <span>0.1 cm</span>
+              <span>2.5 cm</span>
+            </div>
+          </div>
+
+          <!-- Action Button -->
+          <div class="pt-2">
+            <button id="runPredictBtn" class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold shadow-lg shadow-indigo-600/25 active:scale-[0.99] transition flex items-center justify-center gap-2">
+              <svg id="predictBtnSpinner" class="w-4 h-4 animate-spin hidden" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span id="predictBtnText">Run Model Prediction</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="lg:col-span-5 space-y-6">
+
+        <!-- Result Card -->
+        <div id="resultCard" class="relative overflow-hidden bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-2xl transition-all duration-300">
+          <div class="absolute -right-12 -top-12 w-44 h-44 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none"></div>
+
+          <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
+            <span class="text-xs font-semibold tracking-wider uppercase text-slate-400">Prediction Output</span>
+            <span id="sourceBadge" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Render Live</span>
+          </div>
+
+          <div class="my-6 text-center">
+            <!-- Dynamic Flower Icon Badge -->
+            <div id="classIconWrapper" class="mx-auto w-20 h-20 rounded-2xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center text-4xl shadow-inner mb-4 transition-transform duration-300 hover:scale-105">
+              🌱
+            </div>
+            
+            <h3 id="classNameDisplay" class="text-3xl font-extrabold tracking-tight text-emerald-400 capitalize">
+              setosa
+            </h3>
+            <p id="classIndexDisplay" class="text-xs font-mono text-slate-400 mt-1">
+              Model Class ID: 0 (Iris-setosa)
+            </p>
+          </div>
+
+          <!-- Feature comparison visualizer -->
+          <div class="space-y-3 pt-2 border-t border-slate-800/70">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-slate-400">Petal Ratio (L/W)</span>
+              <span id="ratioDisplay" class="font-mono text-slate-200">7.0x</span>
+            </div>
+            <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div id="ratioBar" class="bg-gradient-to-r from-emerald-500 to-indigo-500 h-2 rounded-full transition-all duration-300" style="width: 25%"></div>
+            </div>
+
+            <!-- Species Characteristics Hint -->
+            <div id="speciesBio" class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-300 leading-relaxed">
+              <strong>Iris Setosa</strong> is characterized by distinctly small, slender petals compared to its wide sepals. Highly linearly separable in feature space.
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Geometric Flower Shape</h3>
+            <span class="text-[10px] text-slate-500">Relative Scale Preview</span>
+          </div>
+
+          <div class="h-44 w-full bg-slate-950 rounded-2xl border border-slate-800/80 flex items-center justify-center relative overflow-hidden">
+            <svg id="flowerSvg" viewBox="0 0 200 200" class="w-40 h-40 transition-all duration-300">
+              <!-- Background Sepals (Indigo) -->
+              <ellipse id="svgSepalH" cx="100" cy="100" rx="45" ry="25" fill="#4f46e5" fill-opacity="0.25" stroke="#6366f1" stroke-width="1.5" />
+              <ellipse id="svgSepalV" cx="100" cy="100" rx="25" ry="45" fill="#4f46e5" fill-opacity="0.25" stroke="#6366f1" stroke-width="1.5" />
+              <!-- Foreground Petals (Pink/Violet) -->
+              <ellipse id="svgPetalH" cx="100" cy="100" rx="20" ry="10" fill="#a855f7" fill-opacity="0.6" stroke="#c084fc" stroke-width="1.5" />
+              <ellipse id="svgPetalV" cx="100" cy="100" rx="10" ry="20" fill="#a855f7" fill-opacity="0.6" stroke="#c084fc" stroke-width="1.5" />
+              <!-- Flower Core -->
+              <circle cx="100" cy="100" r="5" fill="#fbbf24" stroke="#ffffff" stroke-width="1.5" />
+            </svg>
+            <div class="absolute bottom-2 left-3 flex gap-3 text-[10px] font-mono text-slate-400">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500"></span> Sepals</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-purple-400"></span> Petals</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Raw JSON Inspector Card -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 shadow-xl">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Live API Response JSON</span>
+            <button id="copyJsonBtn" class="text-[11px] font-mono text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              Copy JSON
+            </button>
+          </div>
+          <pre id="jsonResponseDisplay" class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-[11px] font-mono text-emerald-400 overflow-x-auto leading-relaxed">
+{
+  "prediction": 0,
+  "class_name": "setosa"
+}</pre>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // State management
+    const state = {
+      sepalLength: 5.1,
+      sepalWidth: 3.5,
+      petalLength: 1.4,
+      petalWidth: 0.2,
+      autoPredict: true,
+      apiUrl: "https://iris-ml-api-satyam.onrender.com",
+      isHealthy: false,
+      lastPrediction: null,
+      loading: false
+    };
+
+    // Preset Data
+    const presets = {
+      setosa: { sl: 5.1, sw: 3.5, pl: 1.4, pw: 0.2 },
+      versicolor: { sl: 6.0, sw: 2.9, pl: 4.5, pw: 1.5 },
+      virginica: { sl: 6.5, sw: 3.0, pl: 5.5, pw: 2.0 }
+    };
+
+    // Elements
+    const sepalLengthSlider = document.getElementById("sepalLength");
+    const sepalWidthSlider = document.getElementById("sepalWidth");
+    const petalLengthSlider = document.getElementById("petalLength");
+    const petalWidthSlider = document.getElementById("petalWidth");
+
+    const sepalLengthNum = document.getElementById("sepalLengthNum");
+    const sepalWidthNum = document.getElementById("sepalWidthNum");
+    const petalLengthNum = document.getElementById("petalLengthNum");
+    const petalWidthNum = document.getElementById("petalWidthNum");
+
+    const apiUrlInput = document.getElementById("apiUrlInput");
+    const pingHealthBtn = document.getElementById("pingHealthBtn");
+    const runPredictBtn = document.getElementById("runPredictBtn");
+    const autoPredictToggle = document.getElementById("autoPredictToggle");
+    const toggleDot = document.getElementById("toggleDot");
+
+    const statusPill = document.getElementById("statusPill");
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const latencyVal = document.getElementById("latencyVal");
+
+    const classNameDisplay = document.getElementById("classNameDisplay");
+    const classIndexDisplay = document.getElementById("classIndexDisplay");
+    const classIconWrapper = document.getElementById("classIconWrapper");
+    const sourceBadge = document.getElementById("sourceBadge");
+    const speciesBio = document.getElementById("speciesBio");
+    const ratioDisplay = document.getElementById("ratioDisplay");
+    const ratioBar = document.getElementById("ratioBar");
+    const jsonResponseDisplay = document.getElementById("jsonResponseDisplay");
+    const copyJsonBtn = document.getElementById("copyJsonBtn");
+
+    const svgSepalH = document.getElementById("svgSepalH");
+    const svgSepalV = document.getElementById("svgSepalV");
+    const svgPetalH = document.getElementById("svgPetalH");
+    const svgPetalV = document.getElementById("svgPetalV");
+
+    function syncInputs(source) {
+      if (source === 'slider') {
+        state.sepalLength = parseFloat(sepalLengthSlider.value);
+        state.sepalWidth = parseFloat(sepalWidthSlider.value);
+        state.petalLength = parseFloat(petalLengthSlider.value);
+        state.petalWidth = parseFloat(petalWidthSlider.value);
+
+        sepalLengthNum.value = state.sepalLength.toFixed(1);
+        sepalWidthNum.value = state.sepalWidth.toFixed(1);
+        petalLengthNum.value = state.petalLength.toFixed(1);
+        petalWidthNum.value = state.petalWidth.toFixed(1);
+      } else {
+        state.sepalLength = parseFloat(sepalLengthNum.value) || 4.0;
+        state.sepalWidth = parseFloat(sepalWidthNum.value) || 2.0;
+        state.petalLength = parseFloat(petalLengthNum.value) || 1.0;
+        state.petalWidth = parseFloat(petalWidthNum.value) || 0.1;
+
+        sepalLengthSlider.value = state.sepalLength;
+        sepalWidthSlider.value = state.sepalWidth;
+        petalLengthSlider.value = state.petalLength;
+        petalWidthSlider.value = state.petalWidth;
+      }
+
+      updateFlowerVisualization();
+
+      if (state.autoPredict) {
+        debouncedPredict();
+      }
+    }
+
+    // Interactive SVG shape calculation
+    function updateFlowerVisualization() {
+      // Scale factors to fit within 200x200 canvas
+      const sRx = Math.min(65, Math.max(20, state.sepalLength * 8));
+      const sRy = Math.min(45, Math.max(15, state.sepalWidth * 10));
+      const pRx = Math.min(50, Math.max(10, state.petalLength * 7));
+      const pRy = Math.min(30, Math.max(5, state.petalWidth * 12));
+
+      svgSepalH.setAttribute("rx", sRx);
+      svgSepalH.setAttribute("ry", sRy);
+      svgSepalV.setAttribute("rx", sRy);
+      svgSepalV.setAttribute("ry", sRx);
+
+      svgPetalH.setAttribute("rx", pRx);
+      svgPetalH.setAttribute("ry", pRy);
+      svgPetalV.setAttribute("rx", pRy);
+      svgPetalV.setAttribute("ry", pRx);
+
+      const ratio = (state.petalLength / Math.max(0.01, state.petalWidth)).toFixed(1);
+      ratioDisplay.textContent = `${ratio}x`;
+      ratioBar.style.width = `${Math.min(100, (state.petalLength / 7.0) * 100)}%`;
+    }
+
+    function applyPreset(species) {
+      const p = presets[species];
+      if (!p) return;
+
+      sepalLengthSlider.value = p.sl;
+      sepalWidthSlider.value = p.sw;
+      petalLengthSlider.value = p.pl;
+      petalWidthSlider.value = p.pw;
+
+      syncInputs('slider');
+      predict();
+    }
+
+    // Debounce helper
+    let debounceTimer = null;
+    function debouncedPredict() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        predict();
+      }, 250);
+    }
+
+    function localPredictFallback(sl, sw, pl, pw) {
+      // Exact decision boundary approximation for Iris dataset
+      if (pl <= 2.45) {
+        return { prediction: 0, class_name: "setosa" };
+      } else if (pw >= 1.75 || (pl >= 4.95 && pw >= 1.55)) {
+        return { prediction: 2, class_name: "virginica" };
+      } else {
+        return { prediction: 1, class_name: "versicolor" };
+      }
+    }
+
+    async function checkHealth() {
+      const start = performance.now();
+      statusText.textContent = "Checking...";
+      statusDot.className = "h-2 w-2 rounded-full bg-amber-400 animate-pulse";
+      statusPill.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-medium";
+
+      try {
+        const cleanUrl = state.apiUrl.replace(/\/+$/, "");
+        const res = await fetch(`${cleanUrl}/health`, { method: "GET" });
+        const latency = Math.round(performance.now() - start);
+        latencyVal.textContent = `${latency} ms`;
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.model_loaded) {
+            statusText.textContent = "API Ready";
+            statusDot.className = "h-2 w-2 rounded-full bg-emerald-400";
+            statusPill.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-medium";
+            state.isHealthy = true;
+            return;
+          }
+        }
+        throw new Error("Unhealthy response");
+      } catch (err) {
+        statusText.textContent = "API Asleep / Local Mode";
+        statusDot.className = "h-2 w-2 rounded-full bg-rose-400";
+        statusPill.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-medium";
+        state.isHealthy = false;
+      }
+    }
+
+    async function predict() {
+      const payload = {
+        features: [state.sepalLength, state.sepalWidth, state.petalLength, state.petalWidth]
+      };
+
+      const spinner = document.getElementById("predictBtnSpinner");
+      const btnText = document.getElementById("predictBtnText");
+      spinner.classList.remove("hidden");
+      btnText.textContent = "Predicting...";
+
+      const startTime = performance.now();
+      let resultData = null;
+      let usedFallback = false;
+
+      try {
+        const cleanUrl = state.apiUrl.replace(/\/+$/, "");
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout before using local fallback
+
+        const response = await fetch(`${cleanUrl}/predict`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) throw new Error("HTTP error " + response.status);
+        resultData = await response.json();
+        const duration = Math.round(performance.now() - startTime);
+        latencyVal.textContent = `${duration} ms`;
+        sourceBadge.textContent = "Render Live";
+        sourceBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+      } catch (e) {
+        // Free tier Render might be waking up (spins down after 15m), provide local fallback gracefully
+        resultData = localPredictFallback(state.sepalLength, state.sepalWidth, state.petalLength, state.petalWidth);
+        usedFallback = true;
+        sourceBadge.textContent = "Local Fallback";
+        sourceBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20";
+        latencyVal.textContent = `< 1 ms`;
+      } finally {
+        spinner.classList.add("hidden");
+        btnText.textContent = "Run Model Prediction";
+      }
+
+      renderPrediction(resultData);
+    }
+
+    // Render prediction to UI
+    function renderPrediction(data) {
+      jsonResponseDisplay.textContent = JSON.stringify(data, null, 2);
+
+      const name = data.class_name.toLowerCase();
+      classNameDisplay.textContent = name;
+      classIndexDisplay.textContent = `Model Class ID: ${data.prediction} (Iris-${name})`;
+
+      if (name === "setosa") {
+        classNameDisplay.className = "text-3xl font-extrabold tracking-tight text-emerald-400 capitalize";
+        classIconWrapper.innerHTML = "🌱";
+        classIconWrapper.className = "mx-auto w-20 h-20 rounded-2xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center text-4xl shadow-inner mb-4 transition-transform duration-300";
+        speciesBio.innerHTML = "<strong>Iris Setosa</strong> is characterized by distinctly small, slender petals compared to its wide sepals. Linearly separable in feature space.";
+      } else if (name === "versicolor") {
+        classNameDisplay.className = "text-3xl font-extrabold tracking-tight text-sky-400 capitalize";
+        classIconWrapper.innerHTML = "🌿";
+        classIconWrapper.className = "mx-auto w-20 h-20 rounded-2xl bg-gradient-to-tr from-sky-500/20 to-blue-500/10 border border-sky-500/30 flex items-center justify-center text-4xl shadow-inner mb-4 transition-transform duration-300";
+        speciesBio.innerHTML = "<strong>Iris Versicolor</strong> represents intermediate dimensions. Often found in wetland borders with balanced petal/sepal ratios.";
+      } else {
+        classNameDisplay.className = "text-3xl font-extrabold tracking-tight text-purple-400 capitalize";
+        classIconWrapper.innerHTML = "🌺";
+        classIconWrapper.className = "mx-auto w-20 h-20 rounded-2xl bg-gradient-to-tr from-purple-500/20 to-pink-500/10 border border-purple-500/30 flex items-center justify-center text-4xl shadow-inner mb-4 transition-transform duration-300";
+        speciesBio.innerHTML = "<strong>Iris Virginica</strong> boasts the largest overall petal dimensions and deep rich flower heads, typically flourishing in moist meadows.";
+      }
+    }
+
+    // Listeners for Sliders & Number inputs
+    [sepalLengthSlider, sepalWidthSlider, petalLengthSlider, petalWidthSlider].forEach(slider => {
+      slider.addEventListener("input", () => syncInputs('slider'));
+    });
+
+    [sepalLengthNum, sepalWidthNum, petalLengthNum, petalWidthNum].forEach(num => {
+      num.addEventListener("input", () => syncInputs('number'));
+    });
+
+    // Auto predict toggle
+    autoPredictToggle.addEventListener("change", (e) => {
+      state.autoPredict = e.target.checked;
+      if (state.autoPredict) {
+        toggleDot.classList.add("translate-x-4", "bg-indigo-500");
+        toggleDot.classList.remove("translate-x-0", "bg-slate-400");
+      } else {
+        toggleDot.classList.remove("translate-x-4", "bg-indigo-500");
+        toggleDot.classList.add("translate-x-0", "bg-slate-400");
+      }
+    });
+
+    // Predict & Ping Buttons
+    runPredictBtn.addEventListener("click", () => predict());
+    pingHealthBtn.addEventListener("click", () => checkHealth());
+
+    apiUrlInput.addEventListener("change", (e) => {
+      state.apiUrl = e.target.value.trim();
+      checkHealth();
+    });
+
+    // Copy JSON handler
+    copyJsonBtn.addEventListener("click", () => {
+      const text = jsonResponseDisplay.textContent;
+      const tempArea = document.createElement("textarea");
+      tempArea.value = text;
+      document.body.appendChild(tempArea);
+      tempArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempArea);
+      
+      const origText = copyJsonBtn.innerHTML;
+      copyJsonBtn.innerHTML = "Copied!";
+      setTimeout(() => copyJsonBtn.innerHTML = origText, 1500);
+    });
+
+    // Theme toggle
+    const themeToggleBtn = document.getElementById("themeToggleBtn");
+    const themeIconSun = document.getElementById("themeIconSun");
+    const themeIconMoon = document.getElementById("themeIconMoon");
+
+    themeToggleBtn.addEventListener("click", () => {
+      const isDark = document.documentElement.classList.toggle("dark");
+      themeIconSun.classList.toggle("hidden", isDark);
+      themeIconMoon.classList.toggle("hidden", !isDark);
+    });
+
+    // Initial load
+    window.addEventListener("DOMContentLoaded", () => {
+      updateFlowerVisualization();
+      checkHealth();
+      predict();
+    });
+  </script>
+</body>
+</html>
