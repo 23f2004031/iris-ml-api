@@ -1,10 +1,20 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 import joblib
 import numpy as np
 
 app = FastAPI(title="Iris Classification API")
+
+# Allow all origins so Swagger UI / web clients can query the API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load model
 try:
@@ -41,4 +51,3 @@ def predict(request: PredictRequest):
         "prediction": pred,
         "class_name": TARGET_NAMES[pred]
     }
-    
